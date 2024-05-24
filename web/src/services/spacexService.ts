@@ -1,11 +1,9 @@
 import axios from "axios";
 import { API_ENDPOINT } from "../utils/constant";
-// `${API_ENDPOINT}launches`
 
-export const fetchLaunches = async (limit: number) => {
+export const fetchLaunches = async (limit: number, page: number) => {
   try {
-    const params: any = { limit };
-
+    const params = { limit, offset: (page - 1) * limit };
     const response = await axios.get(`${API_ENDPOINT}launches`, { params });
     return response.data;
   } catch (error) {
@@ -14,10 +12,9 @@ export const fetchLaunches = async (limit: number) => {
   }
 };
 
-export const fetchUpcomingLaunches = async (limit: number) => {
+export const fetchUpcomingLaunches = async (limit: number, page: number) => {
   try {
-    const params: any = { limit };
-  
+    const params = { limit, offset: (page - 1) * limit };
     const response = await axios.get(`${API_ENDPOINT}upcomingLaunches`, { params });
     return response.data;
   } catch (error) {
@@ -26,10 +23,9 @@ export const fetchUpcomingLaunches = async (limit: number) => {
   }
 };
 
-export const fetchPreviousLaunches = async (limit: number) => {
+export const fetchPreviousLaunches = async (limit: number, page: number) => {
   try {
-    const params: any = { limit };
-
+    const params = { limit, offset: (page - 1) * limit };
     const response = await axios.get(`${API_ENDPOINT}previousLaunches`, { params });
     return response.data;
   } catch (error) {

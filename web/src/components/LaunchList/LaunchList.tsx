@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   fetchLaunches,
   fetchUpcomingLaunches,
@@ -22,41 +22,12 @@ import {
   InputGroup,
   Spinner,
 } from "react-bootstrap";
+import { FilterState, Launch } from "../../types/LaunchList";
 
-interface Rocket {
-  rocket_name: string;
-  rocket_type: string;
-  description: string;
-  country: string;
-  type: string;
-  name: string;
-}
-
-interface Launch {
-  launch_date_local: string;
-  launch_date_utc: string;
-  id: string;
-  details: string;
-  rocket: {
-    rocket_name: string;
-    rocket_type: string;
-    rocket: Rocket;
-  };
-  upcoming: boolean;
-  launch_success: boolean | null;
-  links: {
-    flickr_images: string[];
-  };
-}
-interface FilterState {
-  launchStatus: String;
-  sort: string;
-  limit: number;
-}
 
 const LaunchList: React.FC = () => {
-  const [prevLaunches, setPrevLaunches] = useState<Launch[]>([]);
   const [launches, setLaunches] = useState<Launch[]>([]);
+  const [prevLaunches, setPrevLaunches] = useState<Launch[]>([]);
   const [extendedIdx, setExtendedIdx] = useState(-1);
   const [loading, setLoading] = useState<boolean>(true);
   const [isSearchActive, setIsSearchActive] = useState<boolean>(false);
@@ -64,50 +35,45 @@ const LaunchList: React.FC = () => {
   const [filter, setFilter] = useState<FilterState>({
     launchStatus: "all",
     sort: "asc",
-    limit: 20,
+    limit: 5,
   });
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
 
-  const fetchLaunchesByStatus = async (filter: FilterState) => {
+  const fetchLaunchesByStatus = async (filter: FilterState, page: number) => {
     if (filter.launchStatus === "upcoming") {
-      return await fetchUpcomingLaunches(filter.limit);
+      return await fetchUpcomingLaunches(filter.limit, page);
     } else if (filter.launchStatus === "previous") {
-      return await fetchPreviousLaunches(filter.limit);
+      return await fetchPreviousLaunches(filter.limit, page);
     }
-    return await fetchLaunches(filter.limit);
+    return await fetchLaunches(filter.limit, page);
   };
 
-  const getLaunches = async (filter: FilterState) => {
+  const getLaunches = useCallback(async (filter: FilterState, page: number) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchLaunchesByStatus(filter);
-      console.log("data", data);
-      const sortedLaunches = data.sort(
-        (
-          a: { launch_date_utc: string | number | Date },
-          b: { launch_date_utc: string | number | Date }
-        ) => {
-          const dateA = new Date(a.launch_date_utc).getTime();
-          const dateB = new Date(b.launch_date_utc).getTime();
-          if (filter.sort === "asc") {
-            return dateA - dateB;
-          } else {
-            return dateB - dateA;
-          }
-        }
+      const data = await fetchLaunchesByStatus(filter, page);
+      const sortedLaunches = data.sort((a: { launch_date_utc: string | number | Date; }, b: { launch_date_utc: string | number | Date; }) => {
+        const dateA = new Date(a.launch_date_utc).getTime();
+        const dateB = new Date(b.launch_date_utc).getTime();
+        return filter.sort === "asc" ? dateA - dateB : dateB - dateA;
+      });
+      setLaunches((previousLaunches) =>
+        page === 1 ? sortedLaunches : [...previousLaunches, ...sortedLaunches]
       );
       setPrevLaunches(sortedLaunches);
-      setLaunches(sortedLaunches);
+      setHasMore(data.length > 0);
     } catch (error) {
       setError("Failed to fetch SpaceX data");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    !isSearchActive && getLaunches(filter);
-  }, [filter, isSearchActive]);
+    !isSearchActive && getLaunches(filter, page);
+  }, [filter, isSearchActive, page, getLaunches]);
 
   const handleFilterChange = (eventKey: string | null, filterType: string) => {
     if (eventKey !== null) {
@@ -122,27 +88,32 @@ const LaunchList: React.FC = () => {
         ...prevFilter,
         ...modifiedFilter,
       }));
+      setPage(1);
+      setLoading(true);
     }
   };
 
-  const getFlickerImage = (launch: {
-    links: { flickr_images: string | any[] };
-  }) => {
+  const getFlickerImage = (launch: Launch): JSX.Element => {
     return launch.links && launch.links.flickr_images.length > 0 ? (
-      <img src={launch.links.flickr_images[0]} />
+      <img src={launch.links.flickr_images[0]} alt="Flicker" />
     ) : (
       <RocketTakeoff size={50} />
     );
   };
+  
+  const searchObjectsForTerm = (arr: Launch[], term: string) => {
+    const searchResults: any[] = [];
 
-  const searchObjectsForTerm = (arr, term) => {
-    const searchResults = [];
-
-    const search = (parent, obj, term) => {
+    const search = (
+      parent: null | { [x: string]: string },
+      obj: { [x: string]: string },
+      term: string
+    ) => {
       for (const key in obj) {
         if (typeof obj[key] === "object" && obj[key] !== null) {
+          const childObj = obj[key] as unknown as { [x: string]: string };
           if (parent === null) parent = obj;
-          search(parent, obj[key], term);
+          search(parent, childObj, term);
         } else if (
           typeof obj[key] === "string" &&
           obj[key].toLowerCase().includes(term.toLowerCase())
@@ -158,32 +129,51 @@ const LaunchList: React.FC = () => {
       }
     };
 
-    arr.forEach((obj) => {
+    arr.forEach((obj: Launch) => {
       search(null, obj, term);
     });
 
     return searchResults;
   };
 
-  const handleSearch = (e) => {
+  const handleSearch = (e: { target: { value: any } }) => {
     const searchTerm = e.target.value;
     let searchResults;
-    if (searchTerm != "") {
+    if (searchTerm !== "") {
       setIsSearchActive(true);
       searchResults = searchObjectsForTerm(prevLaunches, searchTerm);
+      console.log("searchResults",searchResults)
+      console.log("searchTerm",searchTerm)
       setLaunches(searchResults);
     } else {
       setIsSearchActive(false);
+      setPage(1);
     }
   };
 
-  const debounce = (fn, delay = 1000) => {
-    let timerId = null;
-    return (...args) => {
-      clearTimeout(timerId);
+  const debounce = (fn: Function, delay = 1000): Function => {
+    let timerId: ReturnType<typeof setTimeout> | null = null;
+    return (...args: any[]) => {
+      clearTimeout(timerId as ReturnType<typeof setTimeout>);
       timerId = setTimeout(() => fn(...args), delay);
     };
   };
+
+  const handleScroll = useCallback(() => {
+    if (
+      window.innerHeight + document.documentElement.scrollTop >=
+        document.documentElement.offsetHeight - 500 &&
+      hasMore &&
+      !loading
+    ) {
+      setPage((prevPage) => prevPage + 1);
+    }
+  }, [hasMore, loading]);
+
+  useEffect(() => {
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [handleScroll]);
 
   return (
     <>
@@ -256,12 +246,14 @@ const LaunchList: React.FC = () => {
               <Form.Control
                 type="text"
                 placeholder="Search here.."
-                onChange={debounce(handleSearch, 500)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  debounce(handleSearch, 500)(e)
+                }
               />
             </InputGroup>
           </div>
         </div>
-        {loading ? (
+        {loading && launches.length === 0 ? (
           <div className={classes.loader}>
             <Spinner animation="border" variant="dark" />
           </div>
@@ -270,8 +262,8 @@ const LaunchList: React.FC = () => {
         ) : launches.length === 0 ? (
           <div className={classes.noDataFound}>{"No Data Found"}</div>
         ) : (
-          launches.map((launch: any, itemIdx: number) => (
-            <div className={classes.launchItem}>
+          launches.map((launch, itemIdx) => (
+            <div className={classes.launchItem} key={launch.id}>
               <div className={classes.launchItemRow}>
                 <div className={classes.launchImage}>
                   {getFlickerImage(launch)}
@@ -305,7 +297,7 @@ const LaunchList: React.FC = () => {
                     {launch.launch_success && (
                       <div>
                         <h6 className={classes.heading}>{"Status"}</h6>
-                        <p>{launch.deatils}</p>
+                        <p>{launch.details}</p>
                       </div>
                     )}
                   </div>
@@ -340,7 +332,7 @@ const LaunchList: React.FC = () => {
               </div>
               <div className={classes.launchBottomRow}>
                 <p>
-                  {extendedIdx == itemIdx ? (
+                  {extendedIdx === itemIdx ? (
                     <CaretUpFill onClick={() => setExtendedIdx(-1)} />
                   ) : (
                     <CaretDownFill onClick={() => setExtendedIdx(itemIdx)} />
@@ -349,7 +341,7 @@ const LaunchList: React.FC = () => {
                 </p>
                 <div
                   className={
-                    extendedIdx == itemIdx && launch.details
+                    extendedIdx === itemIdx && launch.details
                       ? classes.detailsVisible
                       : classes.detailsHidden
                   }
@@ -360,6 +352,11 @@ const LaunchList: React.FC = () => {
               </div>
             </div>
           ))
+        )}
+        {loading && launches.length > 0 && (
+          <div className={classes.loader}>
+            <Spinner animation="border" variant="dark" />
+          </div>
         )}
       </div>
     </>

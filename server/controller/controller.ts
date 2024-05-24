@@ -3,13 +3,12 @@ import axios from "axios";
 
 export const getLaunches = async (req: Request, res: Response) => {
   try {
-    const limit = parseInt(req.query.limit as string) || 20;
-
-    const find: any = {};
+    const limit = parseInt(req.query.limit as string) || 5;
+    const offset = parseInt(req.query.offset as string) || 0;
 
     const query = `
-      query ExampleQuery( $limit: Int) {
-        launches( limit: $limit) {
+      query ExampleQuery($limit: Int, $offset: Int) {
+        launches(limit: $limit, offset: $offset) {
           id
           details
           launch_success
@@ -34,7 +33,7 @@ export const getLaunches = async (req: Request, res: Response) => {
       "https://main--spacex-l4uc6p.apollographos.net/graphql",
       {
         query,
-        variables: { limit },
+        variables: { limit, offset },
       }
     );
     const launches = data.data ? data.data.launches : [];
@@ -47,13 +46,12 @@ export const getLaunches = async (req: Request, res: Response) => {
 
 export const getUpcomingLaunches = async (req: Request, res: Response) => {
   try {
-    const limit = parseInt(req.query.limit as string) || 20;
-
-    const find: any = {};
+    const limit = parseInt(req.query.limit as string) || 5;
+    const offset = parseInt(req.query.offset as string) || 0;
 
     const query = `
-      query ExampleQuery {
-        launchesUpcoming {
+      query ExampleQuery($limit: Int, $offset: Int) {
+        launchesUpcoming(limit: $limit, offset: $offset) {
           id
           details
           launch_success
@@ -78,7 +76,7 @@ export const getUpcomingLaunches = async (req: Request, res: Response) => {
       "https://main--spacex-l4uc6p.apollographos.net/graphql",
       {
         query,
-        variables: { limit },
+        variables: { limit, offset },
       }
     );
     const launchesUpcoming = data.data ? data.data.launchesUpcoming : [];
@@ -90,12 +88,13 @@ export const getUpcomingLaunches = async (req: Request, res: Response) => {
 };
 
 export const getPreviousLaunches = async (req: Request, res: Response) => {
-  const limit = parseInt(req.query.limit as string) || 20;
-
   try {
+    const limit = parseInt(req.query.limit as string) || 5;
+    const offset = parseInt(req.query.offset as string) || 0;
+
     const query = `
-      query ExampleQuery( $limit: Int) {
-        launchesPast( limit: $limit) {
+      query ExampleQuery($limit: Int, $offset: Int) {
+        launchesPast(limit: $limit, offset: $offset) {
           id
           details
           launch_success
@@ -120,14 +119,9 @@ export const getPreviousLaunches = async (req: Request, res: Response) => {
       "https://main--spacex-l4uc6p.apollographos.net/graphql",
       {
         query,
-        variables: { limit },
+        variables: { limit, offset },
       }
     );
-
-    // Log the full response
-    console.log("GraphQL response:", data);
-
-    // Check for null or undefined launches property
     const pastLaunches = data.data ? data.data.launchesPast : [];
     res.json(pastLaunches);
   } catch (error) {

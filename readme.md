@@ -5,7 +5,7 @@ Please refer to the installation and configuration instructions in the README fo
 2. Install the necessary dependencies using the provided installation script.
 3. Run the application on your preferred environment.
 4. Access the application through the provided URL.
-5. Explore the various features and functionalities to gain valuable insights into elevator operations.
+5. Explore the various features and functionalities to gain valuable insights into spaceX API operations.
 
 
 
@@ -34,6 +34,8 @@ With this setup, the frontend calls the backend, the backend fetches data from t
 ## Features
  1. Filters implemented - launch status (all, upcoming and previous launches), sort by launch date, search filteration on all fields retreived
  2. Listing of data with rocket information, reference links,launch year, images and expanded views for details which can be further extended
+ 3. On search filert its implemented with debouncing logic for performance improvement
+ 4. Infinite scrolling (performance)
 
 
 ## Technologies Used
