@@ -34,6 +34,7 @@ With this setup, the frontend calls the backend, the backend fetches data from t
 ## Features
  1. Filters implemented - launch status (all, upcoming and previous launches), sort by launch date, search filteration on all fields retreived
  2. Listing of data with rocket information, reference links,launch year, images and expanded views for details which can be further extended
+ 3. On search filert its implemented with debouncing logic for performance improvement
 
 
 ## Technologies Used
