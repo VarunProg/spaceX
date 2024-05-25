@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   fetchLaunches,
   fetchUpcomingLaunches,
@@ -10,32 +10,33 @@ import {
   Wikipedia,
   PlayBtnFill,
   Link45deg,
-  CaretDownFill,
-  CaretUpFill,
   Search,
 } from "react-bootstrap-icons";
 import {
   Badge,
   Button,
+  Card,
+  Col,
+  Container,
   Dropdown,
   Form,
   InputGroup,
+  ListGroup,
+  Row,
   Spinner,
 } from "react-bootstrap";
 import { FilterState, Launch } from "../../types/LaunchList";
 
-
 const LaunchList: React.FC = () => {
-  const [launches, setLaunches] = useState<Launch[]>([]);
   const [prevLaunches, setPrevLaunches] = useState<Launch[]>([]);
-  const [extendedIdx, setExtendedIdx] = useState(-1);
+  const [launches, setLaunches] = useState<Launch[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [isSearchActive, setIsSearchActive] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterState>({
     launchStatus: "all",
     sort: "asc",
-    limit: 5,
+    limit: 10,
   });
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -54,15 +55,22 @@ const LaunchList: React.FC = () => {
     setError(null);
     try {
       const data = await fetchLaunchesByStatus(filter, page);
-      const sortedLaunches = data.sort((a: { launch_date_utc: string | number | Date; }, b: { launch_date_utc: string | number | Date; }) => {
-        const dateA = new Date(a.launch_date_utc).getTime();
-        const dateB = new Date(b.launch_date_utc).getTime();
-        return filter.sort === "asc" ? dateA - dateB : dateB - dateA;
-      });
+      const sortedLaunches = data.sort(
+        (
+          a: { launch_date_utc: string | number | Date },
+          b: { launch_date_utc: string | number | Date }
+        ) => {
+          const dateA = new Date(a.launch_date_utc).getTime();
+          const dateB = new Date(b.launch_date_utc).getTime();
+          return filter.sort === "asc" ? dateA - dateB : dateB - dateA;
+        }
+      );
+      setPrevLaunches((previousLaunches) =>
+        page === 1 ? sortedLaunches : [...previousLaunches, ...sortedLaunches]
+      );
       setLaunches((previousLaunches) =>
         page === 1 ? sortedLaunches : [...previousLaunches, ...sortedLaunches]
       );
-      setPrevLaunches(sortedLaunches);
       setHasMore(data.length > 0);
     } catch (error) {
       setError("Failed to fetch SpaceX data");
@@ -93,14 +101,6 @@ const LaunchList: React.FC = () => {
     }
   };
 
-  const getFlickerImage = (launch: Launch): JSX.Element => {
-    return launch.links && launch.links.flickr_images.length > 0 ? (
-      <img src={launch.links.flickr_images[0]} alt="Flicker" />
-    ) : (
-      <RocketTakeoff size={50} />
-    );
-  };
-  
   const searchObjectsForTerm = (arr: Launch[], term: string) => {
     const searchResults: any[] = [];
 
@@ -142,8 +142,6 @@ const LaunchList: React.FC = () => {
     if (searchTerm !== "") {
       setIsSearchActive(true);
       searchResults = searchObjectsForTerm(prevLaunches, searchTerm);
-      console.log("searchResults",searchResults)
-      console.log("searchTerm",searchTerm)
       setLaunches(searchResults);
     } else {
       setIsSearchActive(false);
@@ -162,7 +160,7 @@ const LaunchList: React.FC = () => {
   const handleScroll = useCallback(() => {
     if (
       window.innerHeight + document.documentElement.scrollTop >=
-        document.documentElement.offsetHeight - 500 &&
+        document.documentElement.offsetHeight - 200 &&
       hasMore &&
       !loading
     ) {
@@ -177,68 +175,84 @@ const LaunchList: React.FC = () => {
 
   return (
     <>
-      <div className={classes.container}>
-        <div className={classes.filters}>
-          <div className={classes.selectFilters}>
-            <h4 className={classes.heading}>{"Launch Status"}</h4>
-            <Dropdown
-              data-bs-theme="dark"
-              onSelect={(e) => handleFilterChange(e, "launchStatus")}
-            >
-              <Dropdown.Toggle
-                id="dropdown-button-dark-example1"
-                variant="secondary"
-                className={classes.selectFilterText}
-              >
-                {filter.launchStatus}
-              </Dropdown.Toggle>
-
-              <Dropdown.Menu>
-                <Dropdown.Item
-                  eventKey="all"
-                  active={filter.launchStatus === "all"}
+      <Container className={classes.container}>
+        <Row className={classes.filters}>
+          <Col md={6} className={classes.selectFilters}>
+            <Row>
+              <Col className={classes.selectLabel}>
+                <h4 className={classes.heading}>{"Launch Status"}</h4>
+              </Col>
+              <Col className={classes.selectDropdown}>
+                <Dropdown
+                  data-bs-theme="dark"
+                  onSelect={(e) => handleFilterChange(e, "launchStatus")}
                 >
-                  All
-                </Dropdown.Item>
-                <Dropdown.Item
-                  eventKey="upcoming"
-                  active={filter.launchStatus === "upcoming"}
-                >
-                  Upcoming
-                </Dropdown.Item>
-                <Dropdown.Item
-                  eventKey="previous"
-                  active={filter.launchStatus === "previous"}
-                >
-                  Previous
-                </Dropdown.Item>
-              </Dropdown.Menu>
-            </Dropdown>
+                  <Dropdown.Toggle
+                    id="dropdown-button-dark-example1"
+                    variant="secondary"
+                    className={classes.selectFilterText}
+                  >
+                    {filter.launchStatus}
+                  </Dropdown.Toggle>
 
-            <h4 className={classes.heading}>{"SortBy Date"}</h4>
-            <Dropdown
-              onSelect={(e) => handleFilterChange(e, "sort")}
-              data-bs-theme="dark"
-            >
-              <Dropdown.Toggle
-                id="dropdown-button-dark-example1"
-                variant="secondary"
-                className={classes.selectFilterText}
-              >
-                {filter.sort}
-              </Dropdown.Toggle>
-              <Dropdown.Menu>
-                <Dropdown.Item eventKey="asc" active={filter.sort === "asc"}>
-                  Asc
-                </Dropdown.Item>
-                <Dropdown.Item eventKey="desc" active={filter.sort === "desc"}>
-                  Desc
-                </Dropdown.Item>
-              </Dropdown.Menu>
-            </Dropdown>
-          </div>
+                  <Dropdown.Menu>
+                    <Dropdown.Item
+                      eventKey="all"
+                      active={filter.launchStatus === "all"}
+                    >
+                      All
+                    </Dropdown.Item>
+                    <Dropdown.Item
+                      eventKey="upcoming"
+                      active={filter.launchStatus === "upcoming"}
+                    >
+                      Upcoming
+                    </Dropdown.Item>
+                    <Dropdown.Item
+                      eventKey="previous"
+                      active={filter.launchStatus === "previous"}
+                    >
+                      Previous
+                    </Dropdown.Item>
+                  </Dropdown.Menu>
+                </Dropdown>
+              </Col>
 
-          <div className={classes.searchFilters}>
+              <Col className={classes.selectLabel}>
+                <h4 className={classes.heading}>{"SortBy Date"}</h4>
+              </Col>
+              <Col className={classes.selectDropdown}>
+                <Dropdown
+                  onSelect={(e) => handleFilterChange(e, "sort")}
+                  data-bs-theme="dark"
+                >
+                  <Dropdown.Toggle
+                    id="dropdown-button-dark-example1"
+                    variant="secondary"
+                    className={classes.selectFilterText}
+                  >
+                    {filter.sort}
+                  </Dropdown.Toggle>
+                  <Dropdown.Menu>
+                    <Dropdown.Item
+                      eventKey="asc"
+                      active={filter.sort === "asc"}
+                    >
+                      Asc
+                    </Dropdown.Item>
+                    <Dropdown.Item
+                      eventKey="desc"
+                      active={filter.sort === "desc"}
+                    >
+                      Desc
+                    </Dropdown.Item>
+                  </Dropdown.Menu>
+                </Dropdown>
+              </Col>
+            </Row>
+          </Col>
+
+          <Col md={4} className={classes.searchFilters}>
             <InputGroup>
               <InputGroup.Text>
                 <Search />
@@ -246,119 +260,120 @@ const LaunchList: React.FC = () => {
               <Form.Control
                 type="text"
                 placeholder="Search here.."
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  debounce(handleSearch, 500)(e)
-                }
+                onChange={debounce(handleSearch, 500)}
               />
             </InputGroup>
-          </div>
-        </div>
-        {loading && launches.length === 0 ? (
-          <div className={classes.loader}>
-            <Spinner animation="border" variant="dark" />
-          </div>
-        ) : error ? (
-          <div className={classes.error}>{error}</div>
-        ) : launches.length === 0 ? (
-          <div className={classes.noDataFound}>{"No Data Found"}</div>
-        ) : (
-          launches.map((launch, itemIdx) => (
-            <div className={classes.launchItem} key={launch.id}>
-              <div className={classes.launchItemRow}>
-                <div className={classes.launchImage}>
-                  {getFlickerImage(launch)}
-                </div>
-                <div className={classes.launchDetails}>
-                  <Badge
-                    bg={launch.upcoming ? "success" : "dark"}
-                    className={classes.launchType}
-                  >
-                    {launch.upcoming ? "Upcoming" : "Previous"}
-                  </Badge>
-                  <div className={classes.subDetails}>
-                    {launch.rocket?.rocket_name && (
-                      <div>
-                        <h6 className={classes.heading}>{"Name"}</h6>
-                        <p>{launch.rocket.rocket_name}</p>
-                      </div>
+          </Col>
+        </Row>
+        <Row>
+          <Col md={12}>
+            {loading && launches.length === 0 ? (
+              <Row className={classes.loader}>
+                <Spinner animation="border" variant="dark" />
+              </Row>
+            ) : error ? (
+              <Row className={classes.error}>{error}</Row>
+            ) : launches.length === 0 ? (
+              <Row className={classes.noDataFound}>{"No Data Found"}</Row>
+            ) : (
+              <Row className="justify-content-center">
+                {launches.map((launch: any) => (
+                  <Card className={classes.launchCardItem}>
+                    {launch.links && launch.links.flickr_images.length > 0 ? (
+                      <Card.Img
+                        className={classes.launchImage}
+                        variant="top"
+                        src={launch.links.flickr_images[0]}
+                      />
+                    ) : (
+                      <Card.Img
+                        className={classes.launchImage}
+                        variant="top"
+                        as={RocketTakeoff}
+                      />
                     )}
-                    {launch.mission_name && (
-                      <div>
-                        <h6 className={classes.heading}>{"Mission"}</h6>
-                        <p>{launch.mission_name}</p>
-                      </div>
-                    )}
-                    {launch.launch_year && (
-                      <div>
-                        <h6 className={classes.heading}>{"Launch Year"}</h6>
-                        <p>{launch.launch_year}</p>
-                      </div>
-                    )}
-                    {launch.launch_success && (
-                      <div>
-                        <h6 className={classes.heading}>{"Status"}</h6>
-                        <p>{launch.details}</p>
-                      </div>
-                    )}
-                  </div>
-                  <div className={classes.linksDetails}>
-                    {launch.links && (
-                      <div>
-                        <h6 className={classes.heading}>{"Links"}</h6>
-                        <div className={classes.links}>
-                          <Button>
-                            <a href={launch.links?.wikipedia} target="_blank">
-                              <Wikipedia />
-                            </a>
-                          </Button>
-                          <Button>
-                            <a href={launch.links?.video_link} target="_blank">
-                              <PlayBtnFill />
-                            </a>
-                          </Button>
-                          <Button>
-                            <a
-                              href={launch.links?.reddit_media}
-                              target="_blank"
-                            >
-                              <Link45deg />
-                            </a>
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className={classes.launchBottomRow}>
-                <p>
-                  {extendedIdx === itemIdx ? (
-                    <CaretUpFill onClick={() => setExtendedIdx(-1)} />
-                  ) : (
-                    <CaretDownFill onClick={() => setExtendedIdx(itemIdx)} />
-                  )}{" "}
-                  {"more"}
-                </p>
-                <div
-                  className={
-                    extendedIdx === itemIdx && launch.details
-                      ? classes.detailsVisible
-                      : classes.detailsHidden
-                  }
-                >
-                  <h6 className={classes.heading}>{"Details"}</h6>
-                  <p>{launch.details}</p>
-                </div>
-              </div>
-            </div>
-          ))
-        )}
-        {loading && launches.length > 0 && (
-          <div className={classes.loader}>
-            <Spinner animation="border" variant="dark" />
-          </div>
-        )}
-      </div>
+                    <Card.Body className={classes.rocketInfo}>
+                      <Card.Title>
+                        <Badge
+                          bg={launch.upcoming ? "success" : "dark"}
+                          className={classes.launchType}
+                        >
+                          {launch.upcoming ? "Upcoming" : "Previous"}
+                        </Badge>
+                      </Card.Title>
+                      {launch.rocket?.rocket_name && (
+                        <Card.Text>
+                          <Card.Title className={classes.heading}>
+                            {"Name"}
+                          </Card.Title>
+                          <Card.Text>{launch.rocket.rocket_name}</Card.Text>
+                        </Card.Text>
+                      )}
+                      {launch.mission_name && (
+                        <Card.Text>
+                          <Card.Title className={classes.heading}>
+                            {"Mission"}
+                          </Card.Title>
+                          <Card.Text>{launch.mission_name}</Card.Text>
+                        </Card.Text>
+                      )}
+                      {launch.launch_year && (
+                        <Card.Text>
+                          <Card.Title className={classes.heading}>
+                            {"Launch Year"}
+                          </Card.Title>
+                          <Card.Text>{launch.launch_year}</Card.Text>
+                        </Card.Text>
+                      )}
+                      {launch.launch_success && (
+                        <Card.Text>
+                          <Card.Title className={classes.heading}>
+                            {"Launch Year"}
+                          </Card.Title>
+                          <Card.Text>{launch.launch_success}</Card.Text>
+                        </Card.Text>
+                      )}
+                    </Card.Body>
+                    <ListGroup className="list-group-flush">
+                      <Card.Body className={classes.links}>
+                        <Button>
+                          <Card.Link
+                            href={launch.links?.wikipedia}
+                            target="_blank"
+                          >
+                            <Wikipedia />
+                          </Card.Link>
+                        </Button>
+                        <Button>
+                          <Card.Link
+                            href={launch.links?.video_link}
+                            target="_blank"
+                          >
+                            <PlayBtnFill />
+                          </Card.Link>
+                        </Button>
+                        <Button>
+                          <Card.Link
+                            href={launch.links?.reddit_media}
+                            target="_blank"
+                          >
+                            <Link45deg />
+                          </Card.Link>
+                        </Button>
+                      </Card.Body>
+                    </ListGroup>
+                  </Card>
+                ))}
+              </Row>
+            )}
+            {loading && launches.length > 0 && (
+              <Row className={classes.loader}>
+                <Spinner animation="border" variant="dark" />
+              </Row>
+            )}
+          </Col>
+        </Row>
+      </Container>
     </>
   );
 };
