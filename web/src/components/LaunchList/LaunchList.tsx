@@ -97,6 +97,7 @@ const LaunchList: React.FC = () => {
         ...modifiedFilter,
       }));
       setPage(1);
+      setLaunches([]); 
       setLoading(true);
     }
   };
@@ -146,6 +147,7 @@ const LaunchList: React.FC = () => {
     } else {
       setIsSearchActive(false);
       setPage(1);
+      setLaunches([]); 
     }
   };
 
@@ -265,7 +267,7 @@ const LaunchList: React.FC = () => {
             </InputGroup>
           </Col>
         </Row>
-        <Row>
+        <Row className={classes.listContainer} >
           <Col md={12}>
             {loading && launches.length === 0 ? (
               <Row className={classes.loader}>
@@ -276,7 +278,7 @@ const LaunchList: React.FC = () => {
             ) : launches.length === 0 ? (
               <Row className={classes.noDataFound}>{"No Data Found"}</Row>
             ) : (
-              <Row className="justify-content-center">
+              <Row className="justify-content-center p-2">
                 {launches.map((launch: any) => (
                   <Card className={classes.launchCardItem}>
                     {launch.links && launch.links.flickr_images.length > 0 ? (
